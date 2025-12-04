@@ -14,17 +14,12 @@ enum Direction {
 struct Rot(Direction, u32);
 
 fn parse_(input: &mut &str) -> winnow::Result<Vec<Rot>> {
-    separated(
-        1..,
-        seq! {Rot(
-        dispatch!(alpha1;
-            "L" => empty.value(Direction::L),
-            "R" => empty.value(Direction::R),
-            _ => fail
-        ), dec_uint)},
-        "\n",
-    )
-    .parse_next(input)
+    let mut parse_direction = dispatch!(alpha1;
+        "L" => empty.value(Direction::L),
+        "R" => empty.value(Direction::R),
+        _ => fail
+    );
+    separated(1.., seq! {Rot(parse_direction,dec_uint)}, "\n").parse_next(input)
 }
 
 fn parse(input: &str) -> Result<Vec<Rot>> {

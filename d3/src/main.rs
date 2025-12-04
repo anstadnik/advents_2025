@@ -20,15 +20,15 @@ fn task1(input: &[Vec<u8>], n: usize) -> Result<u64> {
         .iter()
         .map(|row| {
             let mut sum = 0;
-            let mut prev_best = 0;
+            let mut i_ = 0;
 
             for it in (0..n).rev() {
-                let (i, &n1) = row[prev_best..row.len() - it]
+                let (i, &n1) = (&row[i_..row.len() - it])
                     .iter()
                     .enumerate()
                     .max_by_key(|&(i, &v)| (v, Reverse(i)))
                     .unwrap();
-                prev_best += i + 1;
+                i_ += i + 1;
                 sum = sum * 10 + n1 as u64;
             }
             sum

@@ -27,19 +27,18 @@ fn parse(input: &str) -> Result<Vec<Vec<Tile>>> {
 
 const STEPS: [isize; 3] = [-1, 0, 1];
 
+fn ids_around(x: usize, y: usize) -> impl Iterator<Item = (usize, usize)> {
+    let f = move |(dx, dy)| Some((x.checked_add_signed(dx)?, y.checked_add_signed(dy)?));
+    STEPS.into_iter().cartesian_product(STEPS).filter_map(f)
+}
+
 fn task1(input: &[Vec<Tile>]) -> impl Iterator<Item = (usize, usize)> {
     (0..input.len())
         .cartesian_product(0..input[0].len())
         .filter(|&(x, y)| {
             input[y][x] == Tile::Roll
-                && STEPS
-                    .into_iter()
-                    .cartesian_product(STEPS)
-                    .filter_map(|(dx, dy)| {
-                        input
-                            .get(y.checked_add_signed(dy)?)?
-                            .get(x.checked_add_signed(dx)?)
-                    })
+                && ids_around(x, y)
+                    .filter_map(|(x_, y_)| input.get(y_)?.get(x_))
                     .filter(|&&tile| tile == Tile::Roll)
                     .count()
                     < 5
