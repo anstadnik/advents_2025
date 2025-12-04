@@ -12,9 +12,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      # - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/cache-cargo-install-action@cargo-llvm-cov
-      - uses: taiki-e/cache-cargo-install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
       - run: cargo llvm-cov nextest
       # - uses: actions/checkout@v4
 
