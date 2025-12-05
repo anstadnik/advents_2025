@@ -26,29 +26,42 @@ fn parse(input: &str) -> Result<Vec<Vec<Tile>>> {
 }
 
 const STEPS: [isize; 3] = [-1, 0, 1];
+type NeighborCache = Vec<Vec<Vec<(usize, usize)>>>;
 
-fn ids_around(x: usize, y: usize) -> impl Iterator<Item = (usize, usize)> {
-    let f = move |(dx, dy)| Some((x.checked_add_signed(dx)?, y.checked_add_signed(dy)?));
-    STEPS.into_iter().cartesian_product(STEPS).filter_map(f)
+fn precompute_neighbors(h: usize, w: usize) -> NeighborCache {
+    let neighbors: Vec<_> = STEPS
+        .into_iter()
+        .cartesian_product(STEPS)
+        .filter(|&s| s != (0, 0))
+        .collect();
+    let f = |y: usize, x: usize| {
+        neighbors
+            .iter()
+            .filter_map(|&(dx, dy)| x.checked_add_signed(dx).zip(y.checked_add_signed(dy)))
+            .filter(|&(nx, ny)| nx < w && ny < h)
+            .collect()
+    };
+    (0..h).map(|y| (0..w).map(|x| f(y, x)).collect()).collect()
 }
 
-fn task1(input: &[Vec<Tile>]) -> impl Iterator<Item = (usize, usize)> {
+fn task1(input: &[Vec<Tile>], nc: &NeighborCache) -> impl Iterator<Item = (usize, usize)> {
     (0..input.len())
         .cartesian_product(0..input[0].len())
-        .filter(|&(x, y)| {
+        .filter(move |&(x, y)| {
             input[y][x] == Tile::Roll
-                && ids_around(x, y)
-                    .filter_map(|(x_, y_)| input.get(y_)?.get(x_))
-                    .filter(|&&tile| tile == Tile::Roll)
+                && nc[y][x]
+                    .iter()
+                    .filter(|&&(x_, y_)| input[y_][x_] == Tile::Roll)
                     .count()
-                    < 5
+                    < 4
         })
 }
 
-fn task2(mut input: Vec<Vec<Tile>>) -> usize {
+fn task2(mut input: Vec<Vec<Tile>>, nc: &NeighborCache) -> usize {
     let mut count = 0;
     loop {
-        let accessible_tiles: Vec<_> = task1(&input).collect();
+        let accessible_tiles: Vec<_> = task1(&input, nc).collect();
+
         if accessible_tiles.is_empty() {
             break;
         }
@@ -64,42 +77,12 @@ fn task2(mut input: Vec<Vec<Tile>>) -> usize {
 fn main() -> Result<()> {
     // "/Users/astadnik/misc/advents_2025/d4/input.txt",
     let input = parse(&read_to_string("input.txt")?)?;
-    println!("Task 1: {}", task1(&input).count());
-    println!("Task 2: {}", task2(input.clone()));
+    let neighbor_cache = precompute_neighbors(input.len(), input[0].len());
+
+    println!("Task 1: {}", task1(&input, &neighbor_cache).count());
+    println!("Task 2: {}", task2(input.clone(), &neighbor_cache));
     Ok(())
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const INPUT: &str = r"..@@.@@@@.
-@@@.@.@.@@
-@@@@@.@.@@
-@.@@@@..@.
-@@.@@@@.@@
-.@@@@@@@.@
-.@.@.@.@@@
-@.@@@.@@@@
-.@@@@@@@@.
-@.@.@@@.@.";
-
-    #[test]
-    fn test_task1() -> Result<()> {
-        let input = parse(INPUT)?;
-        assert_eq!(task1(&input).count(), 13);
-        Ok(())
-    }
-
-    #[test]
-    fn test_task2() -> Result<()> {
-        let input = parse(INPUT)?;
-        assert_eq!(task2(input), 43);
-        Ok(())
-    }
-
-    #[test]
-    fn test_main() -> Result<()> {
-        main()
-    }
-}
+mod tests;
