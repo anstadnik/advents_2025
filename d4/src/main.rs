@@ -75,7 +75,6 @@ fn task2(mut input: Vec<Vec<Tile>>, nc: &NeighborCache) -> usize {
 }
 
 fn main() -> Result<()> {
-    // "/Users/astadnik/misc/advents_2025/d4/input.txt",
     let input = parse(&read_to_string("input.txt")?)?;
     let neighbor_cache = precompute_neighbors(input.len(), input[0].len());
 
