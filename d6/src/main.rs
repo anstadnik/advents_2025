@@ -6,6 +6,8 @@ use winnow::combinator::{delimited, separated, separated_pair, terminated};
 use winnow::{Parser, token::one_of};
 
 type T = u64;
+type Input = Vec<(Vec<T>, char)>;
+
 fn parse_(input: &mut &str) -> winnow::Result<(Vec<Vec<T>>, Vec<char>)> {
     let parse_row = separated(1.., dec_uint::<_, T, _>, space1).map(|v: Vec<T>| v);
     let parse_nums = separated(1.., delimited(space0, parse_row, space0), "\n");
@@ -13,7 +15,6 @@ fn parse_(input: &mut &str) -> winnow::Result<(Vec<Vec<T>>, Vec<char>)> {
     separated_pair(parse_nums, '\n', terminated(parse_ops, space0)).parse_next(input)
 }
 
-type Input = Vec<(Vec<T>, char)>;
 fn parse(input: &str) -> Result<Input> {
     let (rows, ops) = parse_.parse(input).map_err(|e| anyhow::anyhow!("{e}"))?;
     Ok((0..ops.len())
@@ -34,12 +35,9 @@ fn task1(input: &Input) -> T {
 }
 
 fn task2(input: &str) -> Result<T> {
-    let data: Vec<_> = input.split('\n').map(|line| line.as_bytes()).collect();
-    let height = data.len();
-    let width = data[0].len();
+    let data: Vec<_> = input.split('\n').map(str::as_bytes).collect();
+    let (height, width, mut ans, mut nums) = (data.len(), data[0].len(), 0, Vec::new());
 
-    let mut ans = 0;
-    let mut nums = Vec::new();
     for col in (0..width).rev() {
         let num = data[..height - 1]
             .iter()
@@ -48,18 +46,14 @@ fn task2(input: &str) -> Result<T> {
         if num != 0 {
             nums.push(num);
         }
-        match data[height - 1].get(col) {
-            Some(b'+') => {
-                ans += nums.iter().sum::<T>();
-                nums.clear();
-            }
-            Some(b'*') => {
-                ans += nums.iter().product::<T>();
-                nums.clear();
-            }
-            Some(b' ') | None => (),
+
+        ans += match data[height - 1].get(col) {
+            Some(b'+') => nums.iter().sum::<T>(),
+            Some(b'*') => nums.iter().product::<T>(),
+            Some(b' ') | None => continue,
             _ => unreachable!(),
-        }
+        };
+        nums.clear();
     }
     Ok(ans)
 }
@@ -87,7 +81,7 @@ mod tests {
 
     #[test]
     fn test_task2() -> Result<()> {
-        assert_eq!(task2(&INPUT)?, 3263827);
+        assert_eq!(task2(INPUT)?, 3263827);
         Ok(())
     }
 
