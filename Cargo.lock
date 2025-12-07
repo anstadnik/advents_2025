@@ -70,7 +70,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "itertools",
- "winnow",
 ]
 
 [[package]]
@@ -88,6 +87,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "winnow",
+]
+
+[[package]]
+name = "d7"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]

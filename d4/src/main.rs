@@ -2,8 +2,6 @@ use std::fs::read_to_string;
 
 use anyhow::Result;
 use itertools::Itertools;
-use winnow::combinator::{dispatch, empty, fail, repeat, separated};
-use winnow::{Parser, token::take};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Tile {
@@ -11,18 +9,13 @@ enum Tile {
     Roll,
 }
 
-fn parse_(input: &mut &str) -> winnow::Result<Vec<Vec<Tile>>> {
-    let parse_tile = dispatch!(take(1usize);
-        "." => empty.value(Tile::Empty),
-        "@" => empty.value(Tile::Roll),
-        _ => fail
-    );
-
-    separated(1.., repeat::<_, _, Vec<Tile>, _, _>(1.., parse_tile), '\n').parse_next(input)
-}
-
-fn parse(input: &str) -> Result<Vec<Vec<Tile>>> {
-    parse_.parse(input).map_err(|e| anyhow::anyhow!("{e}"))
+fn parse(input: &str) -> Vec<Vec<Tile>> {
+    let f = |c| match c {
+        '.' => Tile::Empty,
+        '@' => Tile::Roll,
+        _ => unreachable!(),
+    };
+    input.lines().map(|l| l.chars().map(f).collect()).collect()
 }
 
 const STEPS: [isize; 3] = [-1, 0, 1];
@@ -75,7 +68,7 @@ fn task2(mut input: Vec<Vec<Tile>>, nc: &NeighborCache) -> usize {
 }
 
 fn main() -> Result<()> {
-    let input = parse(&read_to_string("input.txt")?)?;
+    let input = parse(&read_to_string("input.txt")?);
     let neighbor_cache = precompute_neighbors(input.len(), input[0].len());
 
     println!("Task 1: {}", task1(&input, &neighbor_cache).count());

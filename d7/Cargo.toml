@@ -1,8 +1,7 @@
 [package]
-name = "d4"
+name = "d7"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
-itertools = "0.14.0"
