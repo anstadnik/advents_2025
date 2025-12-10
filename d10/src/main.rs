@@ -89,16 +89,13 @@ fn press_buttons(
         return;
     }
 
-    if n_pressed >= *min_n_pressed
-        || joltages_sum > target_sum
-        || button_id >= buttons.len()
-        || joltages.iter().zip(target).any(|(&a, &b)| a > b)
-    {
+    if n_pressed >= *min_n_pressed || button_id >= buttons.len() {
         return;
     }
 
     let button = &buttons[button_id];
     let n_lights = button.iter().filter(|&&b| b).count();
+    let mut early_stopping = None;
     for n in 0..=max_target {
         press_buttons(
             n_pressed + n as usize,
@@ -111,17 +108,23 @@ fn press_buttons(
             target_sum,
             max_target,
         );
-        joltages
-            .iter_mut()
-            .zip(button)
-            .filter(|(_, b)| **b)
-            .for_each(|(a, _)| *a += 1);
+        for ((a, b), t) in joltages.iter_mut().zip(button).zip(target) {
+            if *b {
+                *a += 1;
+                if *a > *t {
+                    early_stopping = Some(n);
+                }
+            }
+        }
+        if early_stopping.is_some() {
+            break;
+        }
     }
     joltages
         .iter_mut()
         .zip(button)
         .filter(|(_, b)| **b)
-        .for_each(|(a, _)| *a -= max_target + 1);
+        .for_each(|(a, _)| *a -= early_stopping.unwrap_or(max_target) + 1);
 }
 
 fn task2(input: Vec<Machine>) -> usize {
