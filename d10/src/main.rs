@@ -2,13 +2,15 @@ use anyhow::Result;
 use indicatif::ParallelProgressIterator;
 use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::usize;
 
 use winnow::combinator::{delimited, dispatch, empty, fail, repeat, separated, seq};
 use winnow::{Parser, ascii::dec_uint, token::take};
 
-type T = u16;
+// type T = u16;
+type T = usize;
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Machine {
     lights: Vec<bool>,
@@ -73,58 +75,40 @@ fn task1(input: &[Machine]) -> usize {
         .sum()
 }
 
-fn press_buttons(
-    n_pressed: usize,
-    min_n_pressed: &mut usize,
-    button_id: usize,
-    buttons: &[Vec<bool>],
-    joltages: &mut [T],
-    target: &[T],
-    joltages_sum: usize,
-    target_sum: usize,
-    max_target: T,
-) {
-    if target_sum == joltages_sum && joltages.iter().zip(target).all(|(&a, &b)| a == b) {
-        *min_n_pressed = n_pressed.min(*min_n_pressed);
-        return;
+fn get_joltages(
+    buttons: &[Vec<usize>],
+    target: Vec<usize>,
+    map: &mut HashMap<Vec<usize>, Option<usize>>,
+    depth_available: Option<usize>,
+) -> Option<usize> {
+    if let Some(&result) = map.get(&target) {
+        return result;
     }
 
-    if n_pressed >= *min_n_pressed || button_id >= buttons.len() {
-        return;
+    if depth_available.is_some_and(|da| da == 0) {
+        return None;
     }
 
-    let button = &buttons[button_id];
-    let n_lights = button.iter().filter(|&&b| b).count();
-    let mut early_stopping = None;
-    for n in 0..=max_target {
-        press_buttons(
-            n_pressed + n as usize,
-            min_n_pressed,
-            button_id + 1,
-            buttons,
-            joltages,
-            target,
-            joltages_sum + n as usize * n_lights,
-            target_sum,
-            max_target,
-        );
-        for ((a, b), t) in joltages.iter_mut().zip(button).zip(target) {
-            if *b {
-                *a += 1;
-                if *a > *t {
-                    early_stopping = Some(n);
-                }
+    let mut best: Option<usize> = None;
+    'outer: for button in buttons {
+        let mut new_target = target.to_vec();
+        for &b in button {
+            if new_target[b] == 0 {
+                continue 'outer;
             }
+            new_target[b] -= 1;
         }
-        if early_stopping.is_some() {
-            break;
+        let new_depth = match (best, depth_available) {
+            (Some(b), Some(da)) => Some(b.min(da).saturating_sub(1)),
+            (Some(b), None) => Some(b.saturating_sub(1)),
+            (None, da) => da.map(|d| d.saturating_sub(1)),
+        };
+        if let Some(result) = get_joltages(buttons, new_target, map, new_depth) {
+            best = Some(best.map_or(result + 1, |best| best.min(result + 1)));
         }
     }
-    joltages
-        .iter_mut()
-        .zip(button)
-        .filter(|(_, b)| **b)
-        .for_each(|(a, _)| *a -= early_stopping.unwrap_or(max_target) + 1);
+    map.insert(target, best);
+    best
 }
 
 fn task2(input: Vec<Machine>) -> usize {
@@ -132,34 +116,10 @@ fn task2(input: Vec<Machine>) -> usize {
         // .into_iter()
         .into_par_iter()
         .progress()
-        .map(|mut m| {
-            m.buttons.sort_unstable_by_key(|v| v.len());
-            m.buttons.reverse();
-            // binary mask
-            let buttons: Vec<_> = m
-                .buttons
-                .iter()
-                .map(|v| {
-                    v.iter().fold(vec![false; m.joltage.len()], |mut acc, &i| {
-                        acc[i] = true;
-                        acc
-                    })
-                })
-                .collect();
-            let mut joltage = vec![0; m.joltage.len()];
-            let mut min_n_pressed = usize::MAX;
-            press_buttons(
-                0,
-                &mut min_n_pressed,
-                0,
-                &buttons,
-                &mut joltage,
-                &m.joltage,
-                0,
-                m.joltage.iter().map(|j| *j as usize).sum(),
-                *m.joltage.iter().max().unwrap(),
-            );
-            min_n_pressed
+        .map(|m| {
+            let mut map = HashMap::new();
+            map.insert(vec![0; m.joltage.len()], Some(0));
+            get_joltages(&m.buttons, m.joltage, &mut map, None).unwrap()
         })
         .sum()
 }
@@ -167,6 +127,7 @@ fn task2(input: Vec<Machine>) -> usize {
 fn main() -> Result<()> {
     let input = parse(&read_to_string("input.txt")?)?;
     println!("Task 1: {}", task1(&input));
+    // println!("Task 2: {}", task2(input[..10].to_vec()));
     println!("Task 2: {}", task2(input));
     Ok(())
 }
