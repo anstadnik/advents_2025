@@ -77,7 +77,7 @@ fn press_buttons(
     n_pressed: usize,
     min_n_pressed: &mut usize,
     button_id: usize,
-    buttons: &[Vec<usize>],
+    buttons: &[Vec<bool>],
     joltages: &mut [T],
     target: &[T],
     joltages_sum: usize,
@@ -98,6 +98,7 @@ fn press_buttons(
     }
 
     let button = &buttons[button_id];
+    let n_lights = button.iter().filter(|&&b| b).count();
     for n in 0..=max_target {
         press_buttons(
             n_pressed + n as usize,
@@ -106,33 +107,49 @@ fn press_buttons(
             buttons,
             joltages,
             target,
-            joltages_sum + n as usize * button.len(),
+            joltages_sum + n as usize * n_lights,
             target_sum,
             max_target,
         );
-        for &i in button {
-            joltages[i] += 1;
-        }
+        joltages
+            .iter_mut()
+            .zip(button)
+            .filter(|(_, b)| **b)
+            .for_each(|(a, _)| *a += 1);
     }
-    for &i in button.iter() {
-        joltages[i] -= max_target + 1;
-    }
+    joltages
+        .iter_mut()
+        .zip(button)
+        .filter(|(_, b)| **b)
+        .for_each(|(a, _)| *a -= max_target + 1);
 }
 
 fn task2(input: Vec<Machine>) -> usize {
     input
+        // .into_iter()
         .into_par_iter()
         .progress()
         .map(|mut m| {
             m.buttons.sort_unstable_by_key(|v| v.len());
             m.buttons.reverse();
-            let mut joltage = vec![0; m.lights.len()];
-            let mut min_n_pressed = T::MAX as usize;
+            // binary mask
+            let buttons: Vec<_> = m
+                .buttons
+                .iter()
+                .map(|v| {
+                    v.iter().fold(vec![false; m.joltage.len()], |mut acc, &i| {
+                        acc[i] = true;
+                        acc
+                    })
+                })
+                .collect();
+            let mut joltage = vec![0; m.joltage.len()];
+            let mut min_n_pressed = usize::MAX;
             press_buttons(
                 0,
                 &mut min_n_pressed,
                 0,
-                &m.buttons,
+                &buttons,
                 &mut joltage,
                 &m.joltage,
                 0,
