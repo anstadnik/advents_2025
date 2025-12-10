@@ -97,6 +97,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "d8"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rayon",
+ "winnow",
+]
+
+[[package]]
+name = "d9"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "itertools",
+ "rayon",
+ "winnow",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

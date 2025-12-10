@@ -1,5 +1,5 @@
-use std::array::from_fn;
 use std::fs::read_to_string;
+use std::ops::RangeInclusive;
 
 use anyhow::Result;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -15,14 +15,14 @@ fn parse(input: &str) -> Result<Vec<(T, T)>> {
     parse_.parse(input).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-fn task1(input: &[(T, T)], n_reps: &[usize]) -> Result<T> {
+fn task1(input: &[(T, T)], n_reps: RangeInclusive<usize>) -> Result<T> {
     Ok(input
         .par_iter()
         .flat_map(|&(start, end)| start..=end)
         .filter(|&n| {
             let s = n.to_string().into_bytes();
             let l = s.len();
-            n_reps.iter().any(|&n_rep| {
+            n_reps.clone().any(|n_rep| {
                 let step = l / n_rep;
                 l % n_rep == 0 && s.chunks(step).skip(1).all(|c| c == &s[..step])
             })
@@ -32,8 +32,8 @@ fn task1(input: &[(T, T)], n_reps: &[usize]) -> Result<T> {
 
 fn main() -> Result<()> {
     let input = parse(&read_to_string("input.txt")?)?;
-    println!("Task 1: {}", task1(&input, &[2])?);
-    println!("Task 2: {}", task1(&input, &from_fn::<_, 6, _>(|i| i + 2))?);
+    println!("Task 1: {}", task1(&input, 2..=2)?);
+    println!("Task 2: {}", task1(&input, 2..=6)?);
     Ok(())
 }
 
@@ -49,14 +49,14 @@ mod tests {
     #[test]
     fn test_task1() -> Result<()> {
         let input = parse(&INPUT.replace([' ', '\n'], ""))?;
-        assert_eq!(task1(&input, &[2])?, 1227775554);
+        assert_eq!(task1(&input, 2..=2)?, 1227775554);
         Ok(())
     }
 
     #[test]
     fn test_task2() -> Result<()> {
         let input = parse(&INPUT.replace([' ', '\n'], ""))?;
-        assert_eq!(task1(&input, &from_fn::<_, 6, _>(|i| i + 2))?, 4174379265);
+        assert_eq!(task1(&input, 2..=6)?, 4174379265);
         Ok(())
     }
 

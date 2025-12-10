@@ -31,7 +31,7 @@ fn precompute_neighbors(h: usize, w: usize) -> NeighborCache {
         neighbors
             .iter()
             .filter_map(|&(dx, dy)| x.checked_add_signed(dx).zip(y.checked_add_signed(dy)))
-            .filter(|&(nx, ny)| nx < w && ny < h)
+            .filter(|&(x_, y_)| x_ < w && y_ < h)
             .collect()
     };
     (0..h).map(|y| (0..w).map(|x| f(y, x)).collect()).collect()
