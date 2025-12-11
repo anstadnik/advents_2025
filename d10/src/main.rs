@@ -1,16 +1,21 @@
 use anyhow::Result;
 use indicatif::ParallelProgressIterator;
+use indicatif::ProgressIterator;
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::cmp::Reverse;
+use std::cmp::max;
+use std::collections::BinaryHeap;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fs::read_to_string;
 use std::usize;
 
 use winnow::combinator::{delimited, dispatch, empty, fail, repeat, separated, seq};
 use winnow::{Parser, ascii::dec_uint, token::take};
 
-// type T = u16;
-type T = usize;
+type T = u16;
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Machine {
     lights: Vec<bool>,
@@ -75,60 +80,69 @@ fn task1(input: &[Machine]) -> usize {
         .sum()
 }
 
-fn get_joltages(
-    buttons: &[Vec<usize>],
-    target: Vec<usize>,
-    map: &mut HashMap<Vec<usize>, Option<usize>>,
-    depth_available: Option<usize>,
-) -> Option<usize> {
-    if let Some(&result) = map.get(&target) {
-        return result;
-    }
+fn press_buttons(buttons: Vec<Vec<usize>>, target: &[T]) -> usize {
+    println!("{buttons:?}, {target:?}");
+    let pb = ProgressBar::new_spinner();
+    pb.set_style(
+        ProgressStyle::default_spinner()
+            .template("{spinner:.green} [{elapsed_precise}] queue: {pos}, {msg}")
+            .unwrap(),
+    );
 
-    if depth_available.is_some_and(|da| da == 0) {
-        return None;
-    }
+    let mut memory = HashMap::new();
+    let mut queue = BinaryHeap::new();
 
-    let mut best: Option<usize> = None;
-    'outer: for button in buttons {
-        let mut new_target = target.to_vec();
-        for &b in button {
-            if new_target[b] == 0 {
-                continue 'outer;
-            }
-            new_target[b] -= 1;
+    let start = vec![0; target.len()];
+    queue.push(Reverse((*target.iter().max().unwrap(), 0, start)));
+
+    let mut best_target: Option<usize> = None;
+    while let Some(Reverse((max_dist, n_pressed, joltages))) = queue.pop() {
+        if best_target.is_some_and(|best| n_pressed >= best)
+            || memory.get(&joltages).is_some_and(|&v| n_pressed >= v)
+        {
+            continue;
         }
-        let new_depth = match (best, depth_available) {
-            (Some(b), Some(da)) => Some(b.min(da).saturating_sub(1)),
-            (Some(b), None) => Some(b.saturating_sub(1)),
-            (None, da) => da.map(|d| d.saturating_sub(1)),
-        };
-        if let Some(result) = get_joltages(buttons, new_target, map, new_depth) {
-            best = Some(best.map_or(result + 1, |best| best.min(result + 1)));
+
+        pb.set_position(queue.len() as u64);
+        pb.set_message(format!(
+            "max dist = {max_dist}, best = {best_target:?}, n_pressed = {n_pressed}",
+        ));
+
+        if max_dist == 0 {
+            best_target = Some(n_pressed);
         }
+
+        memory.insert(joltages.clone(), n_pressed);
+
+        queue.extend(buttons.iter().filter_map(|b| {
+            let j = b.iter().fold(joltages.clone(), |mut acc, &i| {
+                acc[i] += 1;
+                acc
+            });
+            j.iter()
+                .zip(target)
+                .try_fold(0, |acc, (&a, &b)| b.checked_sub(a).map(|d| d.max(acc)))
+                .map(|d| Reverse((d, n_pressed + 1, j)))
+        }));
     }
-    map.insert(target, best);
-    best
+    best_target.unwrap_or(0)
 }
 
 fn task2(input: Vec<Machine>) -> usize {
     input
-        // .into_iter()
-        .into_par_iter()
+        .into_iter()
         .progress()
-        .map(|m| {
-            let mut map = HashMap::new();
-            map.insert(vec![0; m.joltage.len()], Some(0));
-            get_joltages(&m.buttons, m.joltage, &mut map, None).unwrap()
-        })
+        // .into_par_iter()
+        // .progress()
+        .map(|m| press_buttons(m.buttons, &m.joltage))
         .sum()
 }
 
 fn main() -> Result<()> {
     let input = parse(&read_to_string("input.txt")?)?;
     println!("Task 1: {}", task1(&input));
-    // println!("Task 2: {}", task2(input[..10].to_vec()));
     println!("Task 2: {}", task2(input));
+    // println!("Task 2: {}", task2(vec![input[6].clone()]));
     Ok(())
 }
 
