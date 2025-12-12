@@ -1,26 +1,18 @@
 use anyhow::Result;
-use indicatif::ParallelProgressIterator;
-use indicatif::ProgressIterator;
-use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
+use microlp::{ComparisonOp, OptimizationDirection, Problem};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::cmp::Reverse;
-use std::cmp::max;
-use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::collections::VecDeque;
 use std::fs::read_to_string;
 use std::usize;
 
 use winnow::combinator::{delimited, dispatch, empty, fail, repeat, separated, seq};
 use winnow::{Parser, ascii::dec_uint, token::take};
 
-type T = u16;
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Machine {
     lights: Vec<bool>,
     buttons: Vec<Vec<usize>>,
-    joltage: Vec<T>,
+    joltage: Vec<usize>,
 }
 
 fn parse_(input: &mut &str) -> winnow::Result<Vec<Machine>> {
@@ -42,7 +34,7 @@ fn parse_(input: &mut &str) -> winnow::Result<Vec<Machine>> {
         delimited('(', separated(1.., dec_uint::<_, usize, _>, ','), ')').map(|v: Vec<_>| v),
         ' ',
     );
-    let mut parse_joltage = delimited('{', separated(1.., dec_uint::<_, T, _>, ','), '}');
+    let mut parse_joltage = delimited('{', separated(1.., dec_uint::<_, usize, _>, ','), '}');
     let parse_machine = seq! {Machine {
         lights: parse_lights,
         _: ' ',
@@ -80,61 +72,31 @@ fn task1(input: &[Machine]) -> usize {
         .sum()
 }
 
-fn press_buttons(buttons: Vec<Vec<usize>>, target: &[T]) -> usize {
-    println!("{buttons:?}, {target:?}");
-    let pb = ProgressBar::new_spinner();
-    pb.set_style(
-        ProgressStyle::default_spinner()
-            .template("{spinner:.green} [{elapsed_precise}] queue: {pos}, {msg}")
-            .unwrap(),
-    );
-
-    let mut memory = HashMap::new();
-    let mut queue = BinaryHeap::new();
-
-    let start = vec![0; target.len()];
-    queue.push(Reverse((*target.iter().max().unwrap(), 0, start)));
-
-    let mut best_target: Option<usize> = None;
-    while let Some(Reverse((max_dist, n_pressed, joltages))) = queue.pop() {
-        if best_target.is_some_and(|best| n_pressed >= best)
-            || memory.get(&joltages).is_some_and(|&v| n_pressed >= v)
-        {
-            continue;
-        }
-
-        pb.set_position(queue.len() as u64);
-        pb.set_message(format!(
-            "max dist = {max_dist}, best = {best_target:?}, n_pressed = {n_pressed}",
-        ));
-
-        if max_dist == 0 {
-            best_target = Some(n_pressed);
-        }
-
-        memory.insert(joltages.clone(), n_pressed);
-
-        queue.extend(buttons.iter().filter_map(|b| {
-            let j = b.iter().fold(joltages.clone(), |mut acc, &i| {
-                acc[i] += 1;
-                acc
-            });
-            j.iter()
-                .zip(target)
-                .try_fold(0, |acc, (&a, &b)| b.checked_sub(a).map(|d| d.max(acc)))
-                .map(|d| Reverse((d, n_pressed + 1, j)))
-        }));
-    }
-    best_target.unwrap_or(0)
-}
-
 fn task2(input: Vec<Machine>) -> usize {
     input
-        .into_iter()
-        .progress()
-        // .into_par_iter()
-        // .progress()
-        .map(|m| press_buttons(m.buttons, &m.joltage))
+        .into_par_iter()
+        .map(|m| {
+            let mut prob = Problem::new(OptimizationDirection::Minimize);
+
+            let num_buttons = m.buttons.len();
+
+            // Create variables for each button (how many times to press it)
+            let vars: Vec<_> = (0..num_buttons)
+                .map(|_| prob.add_integer_var(1.0, (0, 300)))
+                .collect();
+
+            for (joltage_idx, &target) in m.joltage.iter().enumerate() {
+                let lhs = m
+                    .buttons
+                    .iter()
+                    .zip(&vars)
+                    .filter(|(button, _)| button.contains(&joltage_idx))
+                    .map(|(_, var)| (*var, 1.0));
+                prob.add_constraint(lhs, ComparisonOp::Eq, target as f64);
+            }
+
+            prob.solve().ok().unwrap().objective().round() as usize
+        })
         .sum()
 }
 
@@ -142,7 +104,6 @@ fn main() -> Result<()> {
     let input = parse(&read_to_string("input.txt")?)?;
     println!("Task 1: {}", task1(&input));
     println!("Task 2: {}", task2(input));
-    // println!("Task 2: {}", task2(vec![input[6].clone()]));
     Ok(())
 }
 
@@ -168,8 +129,8 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    // fn test_main() -> Result<()> {
-    //     main()
-    // }
+    #[test]
+    fn test_main() -> Result<()> {
+        main()
+    }
 }
