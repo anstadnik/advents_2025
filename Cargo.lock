@@ -65,6 +65,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "d11"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "winnow",
+]
+
+[[package]]
+name = "d12"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "winnow",
+]
+
+[[package]]
 name = "d2"
 version = "0.1.0"
 dependencies = [
